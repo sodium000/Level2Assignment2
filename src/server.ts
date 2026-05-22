@@ -1,12 +1,14 @@
-import express from 'express'
-const app = express()
-const port = 5000
 
-app.get('/', (req , res ) => {
-  res.send('Helloffasdfsfdsfdsdafds!')
-  console.log(req)
-})
 
-app.listen(port, () => {
-  console.log(`Example app listening on port ${port}`)
-})
+import app from "./app";
+import config from "./config";
+import { initDB } from "./db";
+
+const main = () => {
+  initDB();
+  app.listen(config.port, () => {
+    console.log(`Example app listening on port ${config.port}`);
+  });
+};
+
+main();
