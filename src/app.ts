@@ -6,6 +6,7 @@ import express, {
   type Response,
 } from "express";
 import { userRoute } from "./modules/user/user.route";
+import { issueRoute } from "./modules/issue/issue.route";
 
 const app: Application = express();
 
@@ -30,7 +31,7 @@ app.get("/", (req: Request, res: Response) => {
 
 
 app.use("/api/auth", userRoute);
-app.use("/api/auth", userRoute);
+app.use("/api/issues", issueRoute);
 
 
 export default app;

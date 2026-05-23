@@ -6,8 +6,8 @@ export const pool = new Pool({
 });
 
 export const initDB = async () => {
-    try {
-        await pool.query(`
+  try {
+    await pool.query(`
             CREATE TABLE IF NOT EXISTS users (
                 id SERIAL PRIMARY KEY,
                 name VARCHAR(20),
@@ -20,26 +20,31 @@ export const initDB = async () => {
 
             `);
 
-        await pool.query(`
+    await pool.query(`
             CREATE TABLE IF NOT EXISTS issues (
-                id SERIAL PRIMARY KEY,
-                title VARCHAR(20),
-                description VARCHAR(50) UNIQUE NOT NULL,
-                type text NOT NULL,
-                status VARCHAR(20) DEFAULT 'contributor',
-                reporter_id INTEGER REFERENCES users(id),
-                created_at TIMESTAMP DEFAULT NOW(),
-                updated_at TIMESTAMP DEFAULT NOW()
+                   id SERIAL PRIMARY KEY,
+
+    title VARCHAR(150) NOT NULL
+    CHECK (LENGTH(title) <= 150),
+
+    description TEXT NOT NULL
+    CHECK (LENGTH(description) >= 20),
+
+    type VARCHAR(20) NOT NULL,
+
+    status VARCHAR(20) DEFAULT 'open',
+
+    reporter_id INTEGER REFERENCES users(id),
+
+    created_at TIMESTAMP DEFAULT NOW(),
+
+    updated_at TIMESTAMP DEFAULT NOW()
             )
 
             `);
 
-            console.log("Database connected successfully!");
-    }
-    catch (error) {
-        console.error("Error initializing database:", error);
-    }
+    console.log("Database connected successfully!");
+  } catch (error) {
+    console.error("Error initializing database:", error);
+  }
 };
-
-
-
