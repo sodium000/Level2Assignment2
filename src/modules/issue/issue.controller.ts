@@ -11,7 +11,7 @@ const issuecreate = async (req: Request, res: Response) => {
         });
     }
     catch (error) {
-        // console.error("Issue creation error:", error);
+
         res.status(500).json({
             success: false,
             message: "Failed to create issue",
@@ -38,7 +38,40 @@ const getAll = async (req: Request, res: Response) => {
     }
 }
 
+
+
+const getSingleIssue = async (req: Request, res: Response) => {
+    try {
+        const { id } = req.params;
+
+        const issue = await issueService.getSingleIssueFromDB(id as string);
+
+        if (!issue) {
+            res.status(404).json({
+                success: false,
+                message: "Issue not found"
+            });
+            return;
+        }
+
+        res.status(200).json({
+            success: true,
+            data: issue
+        });
+    }
+    catch (error) {
+        console.error("Get single issue error:", error);
+
+        res.status(500).json({
+            success: false,
+            message: "Failed to retrieve issue",
+            error: (error as any).message || "Unknown error"
+        });
+    }
+}
+
 export const issueController = {
     issuecreate,
-    getAll
+    getAll,
+    getSingleIssue
 };

@@ -20,25 +20,10 @@ const createIssueIntoDB = async (req: Request, res: Response) => {
     return result.rows[0];
 }
 
-/**
- * Retrieves all issues from the database with optional sorting and filtering.
- * This service function is structured with clear patterns to help beginner developers
- * learn industry-standard database practices in Node.js/TypeScript.
- * 
- * @param query - The request query parameters containing optional filters (sort, type, status)
- * @returns Array of issues formatted with their respective reporter (user) details.
- */
+
 const getAllIssues = async (query: Record<string, any>) => {
-    // 1. EXTRACT & DEFAULT QUERY PARAMETERS
-    // We destructure standard parameters from the query object.
-    // Specifying a default value ('newest') for sort ensures we always have a valid sort option.
     const { sort = "newest", type, status } = query;
 
-    // 2. DYNAMIC SQL QUERY BUILDING
-    // We start with a base query and use the "WHERE 1=1" pattern.
-    // "WHERE 1=1" is a standard practice for dynamic queries: it is always true,
-    // which allows us to simply append "AND some_condition = ..." without worrying
-    // about whether to prefix with "WHERE" or "AND" for subsequent conditions.
     let sqlQuery = `
         SELECT 
             id,
@@ -117,7 +102,47 @@ const getAllIssues = async (query: Record<string, any>) => {
     }));
 };
 
+
+const getSingleIssueFromDB = async (id: string) => {
+
+    const result = await pool.query("SELECT * FROM issues WHERE id = $1", [id]);
+
+    if (result.rows.length === 0) {
+        return null;
+    }
+
+    const row = result.rows[0];
+
+    let reporter = null;
+    if (row.reporter_id) {
+        const userResult = await pool.query(
+            "SELECT id, name, role FROM users WHERE id = $1",
+            [row.reporter_id]
+        );
+        if (userResult.rows.length > 0) {
+            reporter = {
+                id: userResult.rows[0].id,
+                name: userResult.rows[0].name,
+                role: userResult.rows[0].role,
+            };
+        }
+    }
+
+
+    return {
+        id: row.id,
+        title: row.title,
+        description: row.description,
+        type: row.type,
+        status: row.status,
+        reporter: reporter,
+        created_at: row.created_at,
+        updated_at: row.updated_at,
+    };
+};
+
 export const issueService = {
     createIssueIntoDB,
-    getAllIssues
+    getAllIssues,
+    getSingleIssueFromDB
 };

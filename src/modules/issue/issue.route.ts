@@ -4,10 +4,10 @@ import { issueController } from "./issue.controller";
 
 
 
- const router = Router();
+const router = Router();
 
- router.get("/", issueController.getAll);
- router.post("/", verifyToken,issueController.issuecreate);
+router.get("/", issueController.getAll);
+router.get("/:id", issueController.getSingleIssue);
+router.post("/", verifyToken, issueController.issuecreate);
 
-
- export const issueRoute = router;
+export const issueRoute = router;
