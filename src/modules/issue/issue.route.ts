@@ -6,7 +6,7 @@ import { issueController } from "./issue.controller";
 
  const router = Router();
 
-
+ router.get("/", issueController.getAll);
  router.post("/", verifyToken,issueController.issuecreate);
 
 

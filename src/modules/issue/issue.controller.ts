@@ -18,8 +18,27 @@ const issuecreate = async (req: Request, res: Response) => {
             error: (error as any).message || "Unknown error"
         });
     }
-}  
+}
+
+const getAll = async (req: Request, res: Response) => {
+    try {
+        const issues = await issueService.getAllIssues(req.query);
+        res.status(200).json({
+            success: true,
+            data: issues
+        });
+    }
+    catch (error) {
+        console.error("Get all issues error:", error);
+        res.status(500).json({
+            success: false,
+            message: "Failed to retrieve issues",
+            error: (error as any).message || "Unknown error"
+        });
+    }
+}
 
 export const issueController = {
-    issuecreate
+    issuecreate,
+    getAll
 };
