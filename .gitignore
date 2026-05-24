@@ -60,3 +60,4 @@ build
 
 # Windows system files
 Thumbs.db
+.vercel

@@ -72,7 +72,11 @@ const createIssueIntoDB = async (req: Request, res: Response) => {
 
         if (!req.body) {
             res.status(400).json({ 
-                error: "Request body is required. Ensure Content-Type header is set to application/json" 
+                success: false,
+                message: "Request body is required",
+                errors: {
+                    details: "Ensure Content-Type header is set to application/json and request body is not empty",
+                }
             });
             return;
         }
@@ -81,13 +85,24 @@ const createIssueIntoDB = async (req: Request, res: Response) => {
         const reporter_id = (req as any).user?.id;
 
         if (!reporter_id) {
-            res.status(401).json({ error: "Unauthorized" });
+            res.status(401).json({ 
+                success: false,
+                message: "Unauthorized",
+                errors: {
+                    details: "User authentication information is missing or invalid",
+                }
+            });
             return;
         }
 
         if (!title || !description || !type) {
             res.status(400).json({ 
-                error: "Missing required fields: title, description, type" 
+                success: false,
+                message: "Missing required fields",
+                errors: {
+                    details: "All required fields must be provided: title, description, and type",
+                    fields: ["title", "description", "type"],
+                }
             });
             return;
         }
