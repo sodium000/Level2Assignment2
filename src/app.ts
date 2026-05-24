@@ -10,10 +10,12 @@ import { issueRoute } from "./modules/issue/issue.route";
 
 const app: Application = express();
 
-app.use(CookieParser());
+// Body parser middleware
 app.use(express.json());
-app.use(express.text());
 app.use(express.urlencoded({ extended: true }));
+app.use(express.text());
+app.use(CookieParser());
+
 
 app.use(
   cors({

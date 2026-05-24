@@ -69,6 +69,14 @@ const formatIssueWithReporter = (issue: RawIssue, usersMap: Record<number, UserI
 
 const createIssueIntoDB = async (req: Request, res: Response) => {
     try {
+
+        if (!req.body) {
+            res.status(400).json({ 
+                error: "Request body is required. Ensure Content-Type header is set to application/json" 
+            });
+            return;
+        }
+
         const { title, description, type, status } = req.body;
         const reporter_id = (req as any).user?.id;
 
