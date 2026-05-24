@@ -1,7 +1,7 @@
 import jwt, { type JwtPayload } from "jsonwebtoken";
 import { type Request, type Response, type NextFunction } from "express";
-import config from "../config";
-import { pool } from "../db";
+import config from "../config/index";
+import { pool } from "../db/index";
 
 
 

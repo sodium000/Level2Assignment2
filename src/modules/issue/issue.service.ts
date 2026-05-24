@@ -1,148 +1,264 @@
 import type { Request, Response } from "express";
 import { pool } from "../../db/index";
 
+// Types
+interface IssueData {
+    title: string;
+    description: string;
+    type: string;
+    status?: string;
+}
 
+interface UserInfo {
+    id: number;
+    name: string;
+    role: string;
+}
 
+interface FormattedIssue {
+    id: number;
+    title: string;
+    description: string;
+    type: string;
+    status: string;
+    reporter: UserInfo | null;
+    created_at: string;
+    updated_at: string;
+}
+
+interface RawIssue {
+    id: number;
+    title: string;
+    description: string;
+    type: string;
+    status: string;
+    reporter_id: number | null;
+    created_at: string;
+    updated_at: string;
+}
+
+const fetchUsersByIds = async (userIds: number[]): Promise<Record<number, UserInfo>> => {
+    if (userIds.length === 0) return {};
+
+    const placeholders = userIds.map((_, index) => `$${index + 1}`).join(", ");
+    const query = `SELECT id, name, role FROM users WHERE id IN (${placeholders})`;
+    
+    const result = await pool.query(query, userIds);
+    
+    const usersMap: Record<number, UserInfo> = {};
+    result.rows.forEach((user: UserInfo) => {
+        usersMap[user.id] = user;
+    });
+    
+    return usersMap;
+};
+
+// Helper function to format issue with reporter details
+const formatIssueWithReporter = (issue: RawIssue, usersMap: Record<number, UserInfo>): FormattedIssue => {
+    return {
+        id: issue.id,
+        title: issue.title,
+        description: issue.description,
+        type: issue.type,
+        status: issue.status,
+        reporter: issue.reporter_id ? (usersMap[issue.reporter_id] || null) : null,
+        created_at: issue.created_at,
+        updated_at: issue.updated_at,
+    };
+};
 
 const createIssueIntoDB = async (req: Request, res: Response) => {
-    const { title, description, type, status } = req.body;
-    const reporter_id = (req as any).user?.id;
+    try {
+        const { title, description, type, status } = req.body;
+        const reporter_id = (req as any).user?.id;
 
-    if (!reporter_id) {
-        res.status(401).json({ error: "Unauthorized" });
-        return;
+        if (!reporter_id) {
+            res.status(401).json({ error: "Unauthorized" });
+            return;
+        }
+
+        // Validate required fields
+        if (!title || !description || !type) {
+            res.status(400).json({ 
+                error: "Missing required fields: title, description, type" 
+            });
+            return;
+        }
+
+        const result = await pool.query(
+            "INSERT INTO issues (title, description, type, status, reporter_id, created_at, updated_at) VALUES ($1, $2, $3, COALESCE($4, 'open'), $5, NOW(), NOW()) RETURNING *",
+            [title, description, type, status, reporter_id]
+        );
+        
+        return result.rows[0];
+    } catch (error) {
+        console.error("Error creating issue:", error);
+        throw error;
     }
-
-    const result = await pool.query(
-        "INSERT INTO issues (title, description, type, status, reporter_id, created_at, updated_at) VALUES ($1, $2, $3,COALESCE($4,'open'), $5, NOW(), NOW()) RETURNING *",
-        [title, description, type, status, reporter_id]
-    );
-    return result.rows[0];
 }
 
 
 const getAllIssues = async (query: Record<string, any>) => {
-    const { sort = "newest", type, status } = query;
+    try {
+        const { sort = "newest", type, status } = query;
 
-    let sqlQuery = `
-        SELECT 
-            id,
-            title,
-            description,
-            type,
-            status,
-            reporter_id,
-            created_at,
-            updated_at
-        FROM issues
-        WHERE 1=1
-    `;
+        let sqlQuery = `
+            SELECT 
+                id,
+                title,
+                description,
+                type,
+                status,
+                reporter_id,
+                created_at,
+                updated_at
+            FROM issues
+            WHERE 1=1
+        `;
 
-    const params: any[] = [];
-    let paramCount = 1;
+        const params: any[] = [];
+        let paramCount = 1;
 
-    if (type) {
-        sqlQuery += ` AND type = $${paramCount}`;
-        params.push(type);
-        paramCount++;
-    }
+        if (type) {
+            sqlQuery += ` AND type = $${paramCount}`;
+            params.push(type);
+            paramCount++;
+        }
 
-    if (status) {
-        sqlQuery += ` AND status = $${paramCount}`;
-        params.push(status);
-        paramCount++;
-    }
+        if (status) {
+            sqlQuery += ` AND status = $${paramCount}`;
+            params.push(status);
+            paramCount++;
+        }
 
-    if (sort === "oldest") {
-        sqlQuery += ` ORDER BY created_at ASC`;
-    } else {
-        sqlQuery += ` ORDER BY created_at DESC`;
-    }
+        if (sort === "oldest") {
+            sqlQuery += ` ORDER BY created_at ASC`;
+        } else {
+            sqlQuery += ` ORDER BY created_at DESC`;
+        }
 
-    const result = await pool.query(sqlQuery, params);
-    const issues = result.rows;
+        const result = await pool.query(sqlQuery, params);
+        const issues: RawIssue[] = result.rows;
 
-    const usersMap: Record<number, { id: number; name: string; role: string }> = {};
-
-    if (issues.length > 0) {
         const reporterIds = Array.from(
             new Set(
                 issues
-                    .map((issue: any) => issue.reporter_id)
-                    .filter((id: any) => id !== null && id !== undefined)
+                    .map((issue: RawIssue) => issue.reporter_id)
+                    .filter((id: number | null) => id !== null && id !== undefined)
             )
-        );
+        ) as number[];
 
-        if (reporterIds.length > 0) {
-            const placeholders = reporterIds.map((_, index) => `$${index + 1}`).join(", ");
-            const userQuery = `SELECT id, name, role FROM users WHERE id IN (${placeholders})`;
+        const usersMap = await fetchUsersByIds(reporterIds);
 
-            const usersResult = await pool.query(userQuery, reporterIds);
-
-            usersResult.rows.forEach((user: any) => {
-                usersMap[user.id] = {
-                    id: user.id,
-                    name: user.name,
-                    role: user.role,
-                };
-            });
-        }
+        return issues.map((issue: RawIssue) => formatIssueWithReporter(issue, usersMap));
+    } catch (error) {
+        console.error("Error fetching all issues:", error);
+        throw error;
     }
-
-
-    return issues.map((row: any) => ({
-        id: row.id,
-        title: row.title,
-        description: row.description,
-        type: row.type,
-        status: row.status,
-        reporter: row.reporter_id ? (usersMap[row.reporter_id] || null) : null,
-        created_at: row.created_at,
-        updated_at: row.updated_at,
-    }));
 };
 
 
-const getSingleIssueFromDB = async (id: string) => {
+const getSingleIssueFromDB = async (id: number): Promise<FormattedIssue | null> => {
+    try {
+        const result = await pool.query("SELECT * FROM issues WHERE id = $1", [id]);
 
-    const result = await pool.query("SELECT * FROM issues WHERE id = $1", [id]);
-
-    if (result.rows.length === 0) {
-        return null;
-    }
-
-    const row = result.rows[0];
-
-    let reporter = null;
-    if (row.reporter_id) {
-        const userResult = await pool.query(
-            "SELECT id, name, role FROM users WHERE id = $1",
-            [row.reporter_id]
-        );
-        if (userResult.rows.length > 0) {
-            reporter = {
-                id: userResult.rows[0].id,
-                name: userResult.rows[0].name,
-                role: userResult.rows[0].role,
-            };
+        if (result.rows.length === 0) {
+            return null;
         }
+
+        const issue: RawIssue = result.rows[0];
+
+        const usersMap = issue.reporter_id ? await fetchUsersByIds([issue.reporter_id]) : {};
+
+        return formatIssueWithReporter(issue, usersMap);
+    } catch (error) {
+        console.error("Error fetching single issue:", error);
+        throw error;
     }
+};
 
+const getIssueByIdFromDB = async (id: number): Promise<RawIssue | null> => {
+    try {
+        const result = await pool.query("SELECT * FROM issues WHERE id = $1", [id]);
+        
+        if (result.rows.length === 0) {
+            return null;
+        }
+        
+        return result.rows[0];
+    } catch (error) {
+        console.error("Error fetching issue by ID:", error);
+        throw error;
+    }
+};
 
-    return {
-        id: row.id,
-        title: row.title,
-        description: row.description,
-        type: row.type,
-        status: row.status,
-        reporter: reporter,
-        created_at: row.created_at,
-        updated_at: row.updated_at,
-    };
+const updateIssueInDB = async (
+    id: number,
+    payload: { title?: string; description?: string; type?: string }
+): Promise<FormattedIssue | null> => {
+    try {
+        const fields: string[] = [];
+        const params: any[] = [];
+        let paramCount = 1;
+
+        if (!payload.title && !payload.description && !payload.type) {
+            throw new Error("At least one field (title, description, or type) is required");
+        }
+
+        if (payload.title !== undefined) {
+            if (!payload.title.trim()) {
+                throw new Error("Title cannot be empty");
+            }
+            fields.push(`title = $${paramCount}`);
+            params.push(payload.title);
+            paramCount++;
+        }
+
+        if (payload.description !== undefined) {
+            if (!payload.description.trim()) {
+                throw new Error("Description cannot be empty");
+            }
+            fields.push(`description = $${paramCount}`);
+            params.push(payload.description);
+            paramCount++;
+        }
+
+        if (payload.type !== undefined) {
+            if (!payload.type.trim()) {
+                throw new Error("Type cannot be empty");
+            }
+            fields.push(`type = $${paramCount}`);
+            params.push(payload.type);
+            paramCount++;
+        }
+
+        fields.push(`updated_at = NOW()`);
+
+        const sqlQuery = `UPDATE issues SET ${fields.join(", ")} WHERE id = $${paramCount} RETURNING *`;
+        params.push(id);
+
+        const result = await pool.query(sqlQuery, params);
+        
+        if (result.rows.length === 0) {
+            return null;
+        }
+
+        const issue: RawIssue = result.rows[0];
+
+        // Fetch reporter details
+        const usersMap = issue.reporter_id ? await fetchUsersByIds([issue.reporter_id]) : {};
+
+        return formatIssueWithReporter(issue, usersMap);
+    } catch (error) {
+        console.error("Error updating issue:", error);
+        throw error;
+    }
 };
 
 export const issueService = {
     createIssueIntoDB,
     getAllIssues,
-    getSingleIssueFromDB
+    getSingleIssueFromDB,
+    getIssueByIdFromDB,
+    updateIssueInDB,
 };
