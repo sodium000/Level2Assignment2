@@ -39,7 +39,7 @@ const getSingleIssue = async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
 
-    const issue = await issueService.getSingleIssueFromDB(id as number);
+    const issue = await issueService.getSingleIssueFromDB(Number(id));
 
     if (!issue) {
       res.status(404).json({
@@ -72,8 +72,8 @@ const updateIssue = async (req: Request, res: Response) => {
 
     const { title, description, type } = req.body;
 
-    // Check issue exists
-    const issue = await issueService.getIssueByIdFromDB(id as number);
+   
+    const issue = await issueService.getIssueByIdFromDB(Number(id));
 
     if (!issue) {
       return res.status(404).json({
@@ -82,16 +82,7 @@ const updateIssue = async (req: Request, res: Response) => {
       });
     }
 
-    /**
-     * Authorization Rules
-     *
-     * Maintainer:
-     *  - Can update any issue
-     *
-     * Contributor:
-     *  - Can update only own issue
-     *  - Only if status = open
-     */
+   
 
     if (user.role === "contributor") {
       const isOwner = issue.reporter_id === user.id;
@@ -126,8 +117,8 @@ const updateIssue = async (req: Request, res: Response) => {
       });
     }
 
-    // Update issue
-    const updatedIssue = await issueService.updateIssueInDB(id as number, {
+
+    const updatedIssue = await issueService.updateIssueInDB(Number(id), {
       title,
       description,
       type,
@@ -149,9 +140,58 @@ const updateIssue = async (req: Request, res: Response) => {
   }
 };
 
+const deleteIssue = async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const user = (req as any).user;
+
+  
+    if (user.role !== "maintainer") {
+      return res.status(403).json({
+        success: false,
+        message: "You do not have permission to delete issues",
+      });
+    }
+
+
+    const issue = await issueService.getIssueByIdFromDB(Number(id));
+
+    if (!issue) {
+      return res.status(404).json({
+        success: false,
+        message: "Issue not found",
+      });
+    }
+
+
+    const deleted = await issueService.deleteIssueFromDB(Number(id));
+
+    if (!deleted) {
+      return res.status(500).json({
+        success: false,
+        message: "Failed to delete issue",
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: "Issue deleted successfully",
+    });
+  } catch (error: any) {
+    console.error("Delete issue error:", error);
+
+    return res.status(500).json({
+      success: false,
+      message: "Failed to delete issue",
+      error: error.message || "Unknown error",
+    });
+  }
+};
+
 export const issueController = {
   issuecreate,
   getAll,
   getSingleIssue,
   updateIssue,
+  deleteIssue,
 };

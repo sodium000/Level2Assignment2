@@ -32,7 +32,7 @@ interface RawIssue {
     description: string;
     type: string;
     status: string;
-    reporter_id: number | null;
+    reporter_id: number;
     created_at: string;
     updated_at: string;
 }
@@ -77,7 +77,6 @@ const createIssueIntoDB = async (req: Request, res: Response) => {
             return;
         }
 
-        // Validate required fields
         if (!title || !description || !type) {
             res.status(400).json({ 
                 error: "Missing required fields: title, description, type" 
@@ -255,10 +254,23 @@ const updateIssueInDB = async (
     }
 };
 
+const deleteIssueFromDB = async (id: number): Promise<boolean> => {
+    try {
+        const result = await pool.query("DELETE FROM issues WHERE id = $1", [id]);
+        
+        // Returns true if a row was deleted, false if no row was found
+        return result.rowCount !== null && result.rowCount > 0;
+    } catch (error) {
+        console.error("Error deleting issue:", error);
+        throw error;
+    }
+};
+
 export const issueService = {
     createIssueIntoDB,
     getAllIssues,
     getSingleIssueFromDB,
     getIssueByIdFromDB,
     updateIssueInDB,
+    deleteIssueFromDB,
 };
